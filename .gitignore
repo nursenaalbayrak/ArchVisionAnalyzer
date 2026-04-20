@@ -11,6 +11,20 @@
 *.sln.docstates
 *.env
 
+# Build dosyaları
+bin/
+obj/
+
+# SQLite veritabanı
+*.db
+*.db-shm
+*.db-wal
+
+# Python
+**/venv/
+**/__pycache__/
+.env
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

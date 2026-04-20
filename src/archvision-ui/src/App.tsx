@@ -1,121 +1,104 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+// 1. Tip Tanımlaması (Interface)
+interface AnalysisResponse {
+  fileName: string;
+  status: string;
+  score: number;
+  message: string;
 }
 
-export default App
+function App() {
+  // 2. State Tanımlamaları
+  const [code, setCode] = useState<string>("");
+  const [result, setResult] = useState<AnalysisResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(false); // Eksik olan loading state eklendi
+
+  // 3. Backend ile İletişim Fonksiyonu
+  const handleAnalyze = async () => {
+    if (!code.trim()) {
+      alert("Lütfen önce bir kod yapıştırın!");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:5018/api/analysis/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(code) 
+      });
+
+      if (!response.ok) throw new Error("Backend bağlantı hatası");
+
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      console.error(error);
+      alert("Analiz başarısız!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="App">
+      <header style={{ padding: '20px' }}>
+        <h1>ArchVisionAnalyzer</h1>
+        <p>Software Architecture & AI Analysis Tool</p>
+      </header>
+
+      <main>
+        {/* 4. Kod Giriş Alanı */}
+        <div style={{ marginBottom: '20px' }}>
+          <textarea
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Analiz edilecek kodu buraya yapıştırın..."
+            style={{ width: '80%', height: '200px', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }}
+          />
+        </div>
+
+        <div className="card">
+          <button 
+            onClick={handleAnalyze} 
+            disabled={loading}
+            style={{ padding: '10px 20px', cursor: 'pointer', fontSize: '16px', borderRadius: '5px', backgroundColor: '#007bff', color: 'white', border: 'none' }}
+          >
+            {loading ? 'Analiz Ediliyor...' : 'Kodu Analiz Et'}
+          </button>
+        </div>
+
+        {/* 5. Sonuç Tablosu */}
+        <div className="results-container" style={{ marginTop: '30px', display: 'flex', justifyContent: 'center' }}>
+          {result ? (
+            <table style={{ width: '80%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f4f4f4' }}>
+                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Dosya Adı</th>
+                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Durum</th>
+                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Skor</th>
+                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Mesaj</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Result tek bir nesne olduğu için map kullanmıyoruz, doğrudan satırı yazıyoruz */}
+                <tr>
+                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{result.fileName}</td>
+                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{result.status}</td>
+                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>%{result.score}</td>
+                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{result.message}</td>
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            !loading && <p>Analiz sonuçları burada görünecek...</p>
+          )}
+        </div>
+      </main>
+    </div>
+  )
+} 
+
+export default App;
