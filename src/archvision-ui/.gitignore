@@ -22,3 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Veritabanı (İçinde şifreler var)
+*.db
+*.db-shm
+*.db-wal
+
+# Hassas Ayarlar
+.env
+appsettings.json
+
+# Paketler ve Build Dosyaları
+node_modules/
+bin/
+obj/
+dist/
+venv/
+__pycache__/

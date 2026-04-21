@@ -1,104 +1,174 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+import Auth from './components/Auth' // Auth bileşenini oluşturduğunu varsayıyoruz
 
-// 1. Tip Tanımlaması (Interface)
 interface AnalysisResponse {
-  fileName: string;
   status: string;
   score: number;
   message: string;
+  createdAt: string;
 }
 
 function App() {
-  // 2. State Tanımlamaları
-  const [code, setCode] = useState<string>("");
+  // 1. Auth & Kullanıcı State'leri
+  const [user, setUser] = useState<{ userId: string; username: string } | null>(null);
+  
+  // 2. Analiz State'leri
+  const [code1, setCode1] = useState("");
+  const [code2, setCode2] = useState("");
   const [result, setResult] = useState<AnalysisResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(false); // Eksik olan loading state eklendi
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // 3. Backend ile İletişim Fonksiyonu
+  // Sayfa yüklendiğinde daha önce giriş yapılmış mı kontrol et
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const username = localStorage.getItem('username');
+    const userId = localStorage.getItem('userId');
+    if (token && username && userId) {
+      setUser({ userId, username });
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.clear();
+    setUser(null);
+    setResult(null);
+  };
+
   const handleAnalyze = async () => {
-    if (!code.trim()) {
-      alert("Lütfen önce bir kod yapıştırın!");
+    if (!code1.trim() || !code2.trim()) {
+      alert("Lütfen karşılaştırmak için iki kod bloğunu da doldurun!");
       return;
     }
 
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5018/api/analysis/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(code) 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Token'ı header'a ekliyoruz
+        },
+        body: JSON.stringify({ 
+          code1, 
+          code2,
+          userId: user?.userId // Analizi yapan kullanıcıyı bildiriyoruz
+        })
       });
 
-      if (!response.ok) throw new Error("Backend bağlantı hatası");
+      if (!response.ok) throw new Error("Bağlantı hatası!");
 
       const data = await response.json();
       setResult(data);
     } catch (error) {
       console.error(error);
-      alert("Analiz başarısız!");
+      alert("Analiz sırasında bir hata oluştu!");
     } finally {
       setLoading(false);
     }
   };
 
+  // --- EĞER KULLANICI GİRİŞ YAPMAMIŞSA ---
+  if (!user) {
+    return <Auth onLoginSuccess={(userData) => setUser(userData)} />;
+  }
+
+
+  // --- ANA ARAYÜZ ---
   return (
-    <div className="App">
-      <header style={{ padding: '20px' }}>
-        <h1>ArchVisionAnalyzer</h1>
-        <p>Software Architecture & AI Analysis Tool</p>
+  <div className="app-layout">
+    {/* --- SIDEBAR --- */}
+    <aside className="sidebar">
+      <div className="sidebar-logo">
+        ArchVision AI
+      </div>
+      
+      <nav className="nav-menu">
+        <div className="nav-item active">
+          <span>🔍</span> Yeni Analiz
+        </div>
+        <div className="nav-item" onClick={() => alert("Geçmiş analizler yakında!")}>
+          <span>📜</span> Geçmiş Analizler
+        </div>
+        <div className="nav-item">
+          <span>📊</span> İstatistikler
+        </div>
+      </nav>
+
+      <div className="sidebar-footer">
+        <div style={{fontSize: '0.85rem', color: '#94a3b8', marginBottom: '10px'}}>
+          Kullanıcı: <strong>{user.username}</strong>
+        </div>
+        <button 
+          onClick={handleLogout}
+          style={{width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ef4444', color: '#ef4444', background: 'transparent', cursor: 'pointer'}}
+        >
+          Çıkış Yap
+        </button>
+      </div>
+    </aside>
+
+    {/* --- ANA İÇERİK --- */}
+    <main className="main-content">
+      <header style={{padding: '20px 40px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between'}}>
+        <h2 style={{margin: 0, fontSize: '1.2rem'}}>Kod Analiz Merkezi</h2>
+        <div style={{color: '#94a3b8', fontSize: '0.9rem'}}>v1.0.4 - Celal Bayar University</div>
       </header>
 
-      <main>
-        {/* 4. Kod Giriş Alanı */}
-        <div style={{ marginBottom: '20px' }}>
-          <textarea
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Analiz edilecek kodu buraya yapıştırın..."
-            style={{ width: '80%', height: '200px', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }}
-          />
-        </div>
+      <div className="main-container">
+        <div className="analysis-grid">
+          <div className="code-card">
+            <h3>Source Code</h3>
+            <textarea 
+              value={code1} 
+              onChange={(e) => setCode1(e.target.value)} 
+              placeholder="Kaynak kodu buraya yapıştırın..."
+            />
+          </div>
 
-        <div className="card">
+          <div className="code-card">
+            <h3>Target Code</h3>
+            <textarea 
+              value={code2} 
+              onChange={(e) => setCode2(e.target.value)} 
+              placeholder="Karşılaştırılacak kodu buraya yapıştırın..."
+            />
+          </div>
+
           <button 
+            className="analyze-btn" 
             onClick={handleAnalyze} 
             disabled={loading}
-            style={{ padding: '10px 20px', cursor: 'pointer', fontSize: '16px', borderRadius: '5px', backgroundColor: '#007bff', color: 'white', border: 'none' }}
           >
-            {loading ? 'Analiz Ediliyor...' : 'Kodu Analiz Et'}
+            {loading ? 'AI Engine İşliyor...' : 'Derin Analizi Başlat'}
           </button>
-        </div>
 
-        {/* 5. Sonuç Tablosu */}
-        <div className="results-container" style={{ marginTop: '30px', display: 'flex', justifyContent: 'center' }}>
-          {result ? (
-            <table style={{ width: '80%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f4f4f4' }}>
-                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Dosya Adı</th>
-                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Durum</th>
-                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Skor</th>
-                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Mesaj</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* Result tek bir nesne olduğu için map kullanmıyoruz, doğrudan satırı yazıyoruz */}
-                <tr>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{result.fileName}</td>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{result.status}</td>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>%{result.score}</td>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{result.message}</td>
-                </tr>
-              </tbody>
-            </table>
-          ) : (
-            !loading && <p>Analiz sonuçları burada görünecek...</p>
+          {result && (
+            <div className="result-section">
+              <h2 style={{margin: 0, color: '#38bdf8'}}>Analiz Tamamlandı</h2>
+              <div style={{fontSize: '48px', fontWeight: '800', margin: '20px 0'}}>
+                 %{result.score}
+              </div>
+              <p style={{fontSize: '1.1rem', color: '#f1f5f9'}}>{result.message}</p>
+              <div style={{
+                display: 'inline-block', 
+                padding: '8px 20px', 
+                borderRadius: '20px', 
+                fontWeight: 'bold',
+                background: result.score > 70 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                color: result.score > 70 ? '#ef4444' : '#22c55e',
+                border: result.score > 70 ? '1px solid #ef4444' : '1px solid #22c55e'
+              }}>
+                Durum: {result.status}
+              </div>
+            </div>
           )}
         </div>
-      </main>
-    </div>
-  )
-} 
+      </div>
+    </main>
+  </div>
+);
+}
 
-export default App;
+export default App

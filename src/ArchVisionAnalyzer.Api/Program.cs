@@ -32,7 +32,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Güvenlik ve Yönlendirme
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // KRİTİK: UseCors mutlaka UseRouting'den sonra, MapControllers'tan önce gelmeli
 app.UseCors("AllowReactApp");
