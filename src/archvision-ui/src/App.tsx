@@ -18,6 +18,7 @@ function App() {
   const [view, setView] = useState<'analyze' | 'history' | 'stats'>('analyze');
   const [history, setHistory] = useState<AnalysisResponse[]>([]);
  const [stats, setStats] = useState<any>(null); 
+ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5018";
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -43,7 +44,7 @@ function App() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5018/api/analysis/upload', {
+      const response = await fetch(`${API_URL}/api/analysis/upload`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -72,7 +73,7 @@ function App() {
       try {
       const userId = localStorage.getItem('userId');
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5018/api/analysis/history/${userId}`, {
+      const response = await fetch(`${API_URL}/api/analysis/history/${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -89,7 +90,7 @@ function App() {
     const token = localStorage.getItem('token');
     
     
-    const response = await fetch(`http://localhost:5018/api/Analysis/user-stats/${userId}`, {
+    const response = await fetch(`${API_URL}/api/Analysis/user-stats/${userId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
