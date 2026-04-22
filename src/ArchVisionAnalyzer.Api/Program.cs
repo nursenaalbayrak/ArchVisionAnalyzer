@@ -1,45 +1,60 @@
 using Microsoft.EntityFrameworkCore;
 using ArchVisionAnalyzer.Api.Data;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. CORS Ayarlarını Yapılandır
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowReactApp",
-        policy =>
-        {
-            policy.WithOrigins("http://localhost:5173") 
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
-});
 
-// 2. Veritabanı (DbContext) Kaydını Yap
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=archvision.db"));
 
-// 3. Temel API Servislerini Ekle
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"] ?? "BU_COK_GIZLI_VE_UZUN_BIR_ANAHTAR_2026")),
+            ValidateIssuer = false, 
+            ValidateAudience = false,
+            ValidateLifetime = true
+        };
+    });
+
+builder.Services.AddAuthorization();
 builder.Services.AddControllers();
-builder.Services.AddOpenApi(); // Swagger/OpenAPI desteği
 
 var app = builder.Build();
 
-// 4. HTTP İletişim Hattını (Middleware Pipeline) Yapılandır
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+// 1. ADIM: Routing'i etkinleştir
+app.UseRouting();
 
-// Güvenlik ve Yönlendirme
-//app.UseHttpsRedirection();
+// 2. ADIM: CORS'u en esnek haliyle tam burada çalıştır
+// (Authentication'dan ÖNCE gelmek zorunda!)
+app.UseCors(policy => policy
+    .AllowAnyOrigin()
+    .AllowAnyMethod()
+    .AllowAnyHeader());
 
-// KRİTİK: UseCors mutlaka UseRouting'den sonra, MapControllers'tan önce gelmeli
-app.UseCors("AllowReactApp");
-
+// 3. ADIM: Kimlik doğrulama
+app.UseAuthentication();
 app.UseAuthorization();
 
-// 5. Endpoint'leri Haritala
+// 4. ADIM: Endpoint'leri bağla
 app.MapControllers();
 
 app.Run();

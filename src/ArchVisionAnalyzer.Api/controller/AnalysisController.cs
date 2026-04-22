@@ -2,12 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using ArchVisionAnalyzer.Api.Data;
 using ArchVisionAnalyzer.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Cors;
 
 namespace ArchVisionAnalyzer.Api.Controllers;
 
-// Frontend'den gelecek çiftli kod yapısı için DTO (Data Transfer Object)
 public class AnalysisRequest
 {
+    public int UserId { get; set; } 
     public string Code1 { get; set; } = string.Empty;
     public string Code2 { get; set; } = string.Empty;
 }
@@ -23,6 +24,17 @@ public class AnalysisController : ControllerBase
         _context = context;
     }
 
+    [HttpGet("history/{userId}")]
+    public async Task<IActionResult> GetUserHistory(int userId)
+    {
+        var history = await _context.Analyses
+            .Where(a => a.UserId == userId)
+            .OrderByDescending(a => a.CreatedAt)
+            .ToListAsync();
+
+        return Ok(history);
+    }
+
     [HttpGet("history")]
     public async Task<IActionResult> GetHistory()
     {
@@ -36,7 +48,6 @@ public class AnalysisController : ControllerBase
     [HttpPost("upload")]
     public async Task<IActionResult> AnalyzeCode([FromBody] AnalysisRequest request)
     {
-        // 1. Validasyon: İki kodun da dolu olduğundan emin ol
         if (string.IsNullOrWhiteSpace(request.Code1) || string.IsNullOrWhiteSpace(request.Code2))
             return BadRequest(new { Message = "Analiz için her iki kod alanı da dolu olmalıdır." });
 
@@ -44,8 +55,6 @@ public class AnalysisController : ControllerBase
         
         try 
         {
-            // 2. AI Servisine (Python) iki kodu birden gönder
-            // Python tarafında 'code1' ve 'code2' anahtarlarını bekliyoruz
             var response = await client.PostAsJsonAsync("http://127.0.0.1:8000/analyze", new { 
                 code1 = request.Code1, 
                 code2 = request.Code2 
@@ -56,11 +65,10 @@ public class AnalysisController : ControllerBase
 
             var aiData = await response.Content.ReadFromJsonAsync<dynamic>();
 
-            // 3. Veritabanına Kaydet
-            // CodeSnippet alanına iki kodu birleştirerek veya belirleyici bir formatta kaydediyoruz
             var newRecord = new AnalysisRecord
             {
-                CodeSnippet = $"Code 1: {request.Code1.Take(50)}... | Code 2: {request.Code2.Take(50)}...",
+                UserId = request.UserId, 
+                CodeSnippet = $"Code 1: {request.Code1.Substring(0, Math.Min(request.Code1.Length, 50))}... | Code 2: {request.Code2.Substring(0, Math.Min(request.Code2.Length, 50))}...",
                 Status = aiData?.GetProperty("label").GetString() ?? "Unknown",
                 Score = aiData?.GetProperty("score").GetInt32() ?? 0,
                 Message = aiData?.GetProperty("detail").GetString() ?? "Çiftli kod analizi tamamlandı.",
@@ -69,13 +77,31 @@ public class AnalysisController : ControllerBase
 
             _context.Analyses.Add(newRecord);
             await _context.SaveChangesAsync();
-
-            // 4. Sonucu Dön
+            
             return Ok(newRecord); 
         }
         catch (Exception ex)
         {
             return StatusCode(500, $"Bağlantı Hatası: {ex.Message}");
         }
+    }
+
+    [HttpGet("user-stats/{userId}")]
+    public async Task<IActionResult> GetUserStats(int userId)
+    {
+        var userAnalyses = await _context.Analyses.Where(a => a.UserId == userId).ToListAsync();
+
+        if (!userAnalyses.Any())
+            return Ok(new { total = 0, averageScore = 0, cloneCount = 0, originalCount = 0 });
+
+        var stats = new
+        {
+            Total = userAnalyses.Count,
+            AverageScore = Math.Round(userAnalyses.Average(a => a.Score), 2),
+            CloneCount = userAnalyses.Count(a => a.Score > 70), 
+            OriginalCount = userAnalyses.Count(a => a.Score <= 70)
+        };
+
+        return Ok(stats);
     }
 }

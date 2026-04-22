@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import Auth from './components/Auth' // Auth bileşenini oluşturduğunu varsayıyoruz
+import Auth from './components/Auth'
 
 interface AnalysisResponse {
   status: string;
@@ -10,16 +10,15 @@ interface AnalysisResponse {
 }
 
 function App() {
-  // 1. Auth & Kullanıcı State'leri
-  const [user, setUser] = useState<{ userId: string; username: string } | null>(null);
-  
-  // 2. Analiz State'leri
+  const [user, setUser] = useState<{ userId: string; username: string } | null>(null); 
   const [code1, setCode1] = useState("");
   const [code2, setCode2] = useState("");
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [view, setView] = useState<'analyze' | 'history' | 'stats'>('analyze');
+  const [history, setHistory] = useState<AnalysisResponse[]>([]);
+ const [stats, setStats] = useState<any>(null); 
 
-  // Sayfa yüklendiğinde daha önce giriş yapılmış mı kontrol et
   useEffect(() => {
     const token = localStorage.getItem('token');
     const username = localStorage.getItem('username');
@@ -48,12 +47,12 @@ function App() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Token'ı header'a ekliyoruz
+          'Authorization': `Bearer ${token}` 
         },
         body: JSON.stringify({ 
           code1, 
           code2,
-          userId: user?.userId // Analizi yapan kullanıcıyı bildiriyoruz
+          userId: user?.userId 
         })
       });
 
@@ -69,106 +68,136 @@ function App() {
     }
   };
 
-  // --- EĞER KULLANICI GİRİŞ YAPMAMIŞSA ---
+      const fetchHistory = async () => {
+      try {
+      const userId = localStorage.getItem('userId');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5018/api/analysis/history/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        setHistory(data);
+        setView('history'); 
+    } catch (error) {
+        alert("Geçmiş yüklenirken hata oluştu!");
+    }
+  };
+
+    const fetchStats = async () => {
+  try {
+    const userId = localStorage.getItem('userId');
+    const token = localStorage.getItem('token');
+    
+    
+    const response = await fetch(`http://localhost:5018/api/Analysis/user-stats/${userId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error("İstatistikler alınamadı");
+
+    const data = await response.json();
+    setStats(data); 
+    setView('stats'); 
+  } catch (error) {
+    console.error(error);
+    alert("İstatistikler yüklenirken bir hata oluştu!");
+  }
+
+};
+  
+  
   if (!user) {
     return <Auth onLoginSuccess={(userData) => setUser(userData)} />;
   }
 
 
-  // --- ANA ARAYÜZ ---
+  
   return (
   <div className="app-layout">
-    {/* --- SIDEBAR --- */}
+   
     <aside className="sidebar">
-      <div className="sidebar-logo">
-        ArchVision AI
-      </div>
+      <div className="sidebar-logo">ArchVision AI</div>
       
       <nav className="nav-menu">
-        <div className="nav-item active">
+       
+        <div 
+          className={`nav-item ${view === 'analyze' ? 'active' : ''}`} 
+          onClick={() => setView('analyze')}
+        >
           <span>🔍</span> Yeni Analiz
         </div>
-        <div className="nav-item" onClick={() => alert("Geçmiş analizler yakında!")}>
-          <span>📜</span> Geçmiş Analizler
+
+        <div 
+          className={`nav-item ${view === 'history' ? 'active' : ''}`} 
+          onClick={fetchHistory}
+        >
+          <span>📜</span> Analiz Geçmişiniz
         </div>
-        <div className="nav-item">
-          <span>📊</span> İstatistikler
-        </div>
+
+        <div 
+  className={`nav-item ${view === 'stats' ? 'active' : ''}`} 
+  onClick={fetchStats} 
+>
+  <span>📊</span> İstatistikler
+</div>
       </nav>
 
       <div className="sidebar-footer">
         <div style={{fontSize: '0.85rem', color: '#94a3b8', marginBottom: '10px'}}>
           Kullanıcı: <strong>{user.username}</strong>
         </div>
-        <button 
-          onClick={handleLogout}
-          style={{width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ef4444', color: '#ef4444', background: 'transparent', cursor: 'pointer'}}
-        >
-          Çıkış Yap
-        </button>
+        <button className="logout-btn-style" onClick={handleLogout}>Çıkış Yap</button>
       </div>
     </aside>
 
-    {/* --- ANA İÇERİK --- */}
     <main className="main-content">
-      <header style={{padding: '20px 40px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between'}}>
-        <h2 style={{margin: 0, fontSize: '1.2rem'}}>Kod Analiz Merkezi</h2>
-        <div style={{color: '#94a3b8', fontSize: '0.9rem'}}>v1.0.4 - Celal Bayar University</div>
+      <header className="main-header">
+        <h2 style={{margin: 0, fontSize: '1.2rem'}}>
+          {view === 'analyze' ? 'Kod Analiz Merkezi' : 'Analiz Geçmişi'}
+        </h2>
+        <div style={{color: '#94a3b8', fontSize: '0.9rem'}}>༼ つ ◕_◕ ༽つ</div>
       </header>
 
       <div className="main-container">
-        <div className="analysis-grid">
-          <div className="code-card">
-            <h3>Source Code</h3>
-            <textarea 
-              value={code1} 
-              onChange={(e) => setCode1(e.target.value)} 
-              placeholder="Kaynak kodu buraya yapıştırın..."
-            />
-          </div>
+  {/* 1. ANALİZ EKRANI */}
+  {view === 'analyze' && (
+    <div className="analysis-grid">
+       {/* Mevcut analiz kodların */}
+    </div>
+  )}
 
-          <div className="code-card">
-            <h3>Target Code</h3>
-            <textarea 
-              value={code2} 
-              onChange={(e) => setCode2(e.target.value)} 
-              placeholder="Karşılaştırılacak kodu buraya yapıştırın..."
-            />
-          </div>
+  {/* 2. GEÇMİŞ EKRANI */}
+  {view === 'history' && (
+    <div className="history-container">
+       {/* Mevcut geçmiş kartların */}
+    </div>
+  )}
 
-          <button 
-            className="analyze-btn" 
-            onClick={handleAnalyze} 
-            disabled={loading}
-          >
-            {loading ? 'AI Engine İşliyor...' : 'Derin Analizi Başlat'}
-          </button>
-
-          {result && (
-            <div className="result-section">
-              <h2 style={{margin: 0, color: '#38bdf8'}}>Analiz Tamamlandı</h2>
-              <div style={{fontSize: '48px', fontWeight: '800', margin: '20px 0'}}>
-                 %{result.score}
-              </div>
-              <p style={{fontSize: '1.1rem', color: '#f1f5f9'}}>{result.message}</p>
-              <div style={{
-                display: 'inline-block', 
-                padding: '8px 20px', 
-                borderRadius: '20px', 
-                fontWeight: 'bold',
-                background: result.score > 70 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                color: result.score > 70 ? '#ef4444' : '#22c55e',
-                border: result.score > 70 ? '1px solid #ef4444' : '1px solid #22c55e'
-              }}>
-                Durum: {result.status}
-              </div>
-            </div>
-          )}
-        </div>
+  {/* 3. İSTATİSTİK EKRANI (İşte burası!) */}
+  {view === 'stats' && stats && (
+    <div className="stats-grid">
+      <div className="stat-card">
+        <h4>Toplam Analiz</h4>
+        <div className="stat-value">{stats.total}</div>
       </div>
+      <div className="stat-card">
+        <h4>Ort. Benzerlik</h4>
+        <div className="stat-value">%{stats.averageScore}</div>
+      </div>
+      <div className="stat-card">
+        <h4>Kopya Sayısı</h4>
+        <div className="stat-value" style={{color: '#ef4444'}}>{stats.cloneCount}</div>
+      </div>
+      <div className="stat-card">
+        <h4>Özgün Kod</h4>
+        <div className="stat-value" style={{color: '#22c55e'}}>{stats.originalCount}</div>
+      </div>
+    </div>
+  )}
+</div>
     </main>
   </div>
 );
-}
+} 
 
 export default App
