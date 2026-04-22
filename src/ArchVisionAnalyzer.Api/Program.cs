@@ -6,10 +6,10 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString = builder.Configuration["DATABASE_URL"];
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite("Data Source=archvision.db"));
-
+    options.UseNpgsql(connectionString)); 
 
 builder.Services.AddCors(options =>
 {
@@ -20,7 +20,6 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
-
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -40,21 +39,32 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// 1. ADIM: Routing'i etkinleştir
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        context.Database.Migrate(); 
+        Console.WriteLine(">>> Supabase PostgreSQL Migration Başarılı!");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($">>> Migration Hatası: {ex.Message}");
+    }
+}
+
 app.UseRouting();
 
-// 2. ADIM: CORS'u en esnek haliyle tam burada çalıştır
-// (Authentication'dan ÖNCE gelmek zorunda!)
+
 app.UseCors(policy => policy
     .AllowAnyOrigin()
     .AllowAnyMethod()
     .AllowAnyHeader());
 
-// 3. ADIM: Kimlik doğrulama
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 4. ADIM: Endpoint'leri bağla
 app.MapControllers();
 
 app.Run();
